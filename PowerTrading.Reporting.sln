@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerTrading.Reporting.Service", "PowerTrading.Reporting.Service\PowerTrading.Reporting.Service.csproj", "{C9F91906-1560-4E55-980A-BA698F124233}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerTrading.Reporting.Service.Tests", "PowerTrading.Reporting.Service.Tests\PowerTrading.Reporting.Service.Tests.csproj", "{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,18 @@ Global
 		{C9F91906-1560-4E55-980A-BA698F124233}.Release|x64.Build.0 = Release|Any CPU
 		{C9F91906-1560-4E55-980A-BA698F124233}.Release|x86.ActiveCfg = Release|Any CPU
 		{C9F91906-1560-4E55-980A-BA698F124233}.Release|x86.Build.0 = Release|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Debug|x64.Build.0 = Debug|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Debug|x86.Build.0 = Debug|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Release|x64.ActiveCfg = Release|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Release|x64.Build.0 = Release|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Release|x86.ActiveCfg = Release|Any CPU
+		{CE7479B7-8C9F-4EC2-8F01-8EA75E9A91EC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

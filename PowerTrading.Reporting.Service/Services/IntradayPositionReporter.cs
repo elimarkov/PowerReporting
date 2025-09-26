@@ -1,4 +1,4 @@
-namespace PowerTrading.Reporting.Service;
+namespace PowerTrading.Reporting.Service.Services;
 
 public class IntradayPositionReporter(ILogger<IntradayPositionReporter> logger) : BackgroundService
 {

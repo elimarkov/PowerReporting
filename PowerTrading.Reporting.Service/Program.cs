@@ -1,4 +1,4 @@
-using PowerTrading.Reporting.Service;
+using PowerTrading.Reporting.Service.Services;
 using Serilog;
 
 // Create bootstrap logger for early startup logging
@@ -18,6 +18,9 @@ try
     builder.Services.AddSerilog((services, lc) => lc
         .ReadFrom.Configuration(builder.Configuration)
         .ReadFrom.Services(services));
+    
+    // Configure application services using extension methods
+    builder.Services.AddApplicationServices(builder.Configuration);
     
     builder.Services.AddHostedService<IntradayPositionReporter>();
 
