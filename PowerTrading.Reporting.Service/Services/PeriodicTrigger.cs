@@ -17,7 +17,7 @@ public sealed class PeriodicTrigger : ITrigger, IDisposable
     public event EventHandler<TriggerEventArgs>? Triggered;
 
     /// <summary>
-    /// Initializes a new instance of PeriodicTrigger and starts it immediately
+    /// Initializes a new instance of PeriodicTrigger
     /// </summary>
     /// <param name="timeProvider">Time provider for creating timers</param>
     /// <param name="options">Configuration options for the periodic trigger</param>
@@ -33,20 +33,46 @@ public sealed class PeriodicTrigger : ITrigger, IDisposable
         _interval = options.Value.Interval;
         _logger = logger;
         
-        // Start immediately upon construction
-        Start();
+        _logger.LogInformation("PeriodicTrigger configured with interval: {IntervalMinutes} minutes", options.Value.IntervalMinutes);
     }
 
-    private void Start()
+    public void Start()
     {
         if (_disposed)
         {
             throw new ObjectDisposedException(nameof(PeriodicTrigger));
         }
 
+        if (_timer != null)
+        {
+            _logger.LogWarning("PeriodicTrigger is already started");
+            return;
+        }
+
         _logger.LogInformation("Starting periodic trigger");
-        _timer = _timeProvider.CreateTimer(OnTimerElapsed, state: null, _interval, _interval);
+        // Fire the first event immediately, then at the configured interval
+        _timer = _timeProvider.CreateTimer(OnTimerElapsed, state: null, TimeSpan.Zero, _interval);
         _logger.LogInformation("Periodic trigger started successfully");
+    }
+
+    public void Stop()
+    {
+        if (_disposed)
+        {
+            _logger.LogWarning("Cannot stop PeriodicTrigger: already disposed");
+            return;
+        }
+
+        if (_timer == null)
+        {
+            _logger.LogWarning("PeriodicTrigger is already stopped");
+            return;
+        }
+
+        _logger.LogInformation("Stopping periodic trigger");
+        _timer.Dispose();
+        _timer = null;
+        _logger.LogInformation("Periodic trigger stopped successfully");
     }
 
     private void OnTimerElapsed(object? state)
@@ -60,7 +86,7 @@ public sealed class PeriodicTrigger : ITrigger, IDisposable
 
             _logger.LogDebug("Timer elapsed - raising Triggered event");
             
-            var eventArgs = new TriggerEventArgs();
+            var eventArgs = new TriggerEventArgs { TriggeredAt = _timeProvider.GetLocalNow().DateTime };
             _logger.LogInformation("Triggering via timer at {TriggeredAt}", eventArgs.TriggeredAt);
             Triggered?.Invoke(this, eventArgs);
         }
@@ -77,9 +103,8 @@ public sealed class PeriodicTrigger : ITrigger, IDisposable
             return;
         }
 
-        _logger.LogInformation("Stopping periodic trigger");
-        _timer?.Dispose();
-        _timer = null;
+        Stop(); // Stop the trigger if it's running
         _disposed = true;
+        _logger.LogInformation("PeriodicTrigger disposed");
     }
 }

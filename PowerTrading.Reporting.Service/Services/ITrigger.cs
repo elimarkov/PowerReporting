@@ -9,4 +9,14 @@ public interface ITrigger
     /// Event raised by trigger
     /// </summary>
     event EventHandler<TriggerEventArgs>? Triggered;
+
+    /// <summary>
+    /// Starts the trigger
+    /// </summary>
+    void Start();
+
+    /// <summary>
+    /// Stops the trigger
+    /// </summary>
+    void Stop();
 }

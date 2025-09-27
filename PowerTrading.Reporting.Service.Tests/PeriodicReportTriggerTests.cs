@@ -1,8 +1,10 @@
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using PowerTrading.Reporting.Service.Options;
 using PowerTrading.Reporting.Service.Services;
+using Microsoft.Extensions.Time.Testing;
 
 namespace PowerTrading.Reporting.Service.Tests;
 
@@ -10,16 +12,16 @@ namespace PowerTrading.Reporting.Service.Tests;
 public sealed class PeriodicReportTriggerTests
 {
     private ILogger<PeriodicTrigger> _logger = null!;
-    private TimeProvider _mockTimeProvider = null!;
+    private FakeTimeProvider _mockTimeProvider = null!;
     private IOptions<PeriodicTriggerOptions> _mockOptions = null!;
     private readonly TimeSpan _testInterval = TimeSpan.FromMinutes(1);
 
     [TestInitialize]
     public void Setup()
     {
-        _logger = Substitute.For<ILogger<PeriodicTrigger>>();
-        _mockTimeProvider = Substitute.For<TimeProvider>();
-        _mockOptions = CreateMockOptions(_testInterval);
+    _logger = Substitute.For<ILogger<PeriodicTrigger>>();
+    _mockTimeProvider = new FakeTimeProvider();
+    _mockOptions = CreateMockOptions(_testInterval);
     }
 
     private static IOptions<PeriodicTriggerOptions> CreateMockOptions(TimeSpan interval)
@@ -31,23 +33,19 @@ public sealed class PeriodicReportTriggerTests
     }
 
     [TestMethod]
-    public void Constructor_WhenCalled_ShouldCreateTimer()
+    public void Start_WhenCalled_ShouldCreateTimer()
     {
         // Arrange
-        var mockTimer = Substitute.For<System.Threading.ITimer>();
-        _mockTimeProvider.CreateTimer(Arg.Any<TimerCallback>(), Arg.Any<object?>(), 
-            Arg.Any<TimeSpan>(), Arg.Any<TimeSpan>())
-            .Returns(mockTimer);
+        _mockTimeProvider.SetUtcNow(DateTime.UtcNow);
+        DateTime dt = DateTime.MinValue;
+        using var trigger = new PeriodicTrigger(_mockTimeProvider, _mockOptions, _logger);
+        trigger.Triggered += (_, arg) => { dt = arg.TriggeredAt; };
 
         // Act
-        using var trigger = new PeriodicTrigger(_mockTimeProvider, _mockOptions, _logger);
+        trigger.Start();
 
         // Assert
-        _mockTimeProvider.Received(1).CreateTimer(
-            Arg.Any<TimerCallback>(),
-            Arg.Any<object?>(),
-            _testInterval,
-            _testInterval);
+        Assert.AreEqual(_mockTimeProvider.GetLocalNow().DateTime, dt);
     }
 
     [TestMethod]
@@ -100,34 +98,45 @@ public sealed class PeriodicReportTriggerTests
     public void TimerCallback_WhenInvoked_ShouldRaiseReportTriggeredEvent()
     {
         // Arrange
-        var mockTimer = Substitute.For<System.Threading.ITimer>();
-        TimerCallback? capturedCallback = null;
-
-        _mockTimeProvider.CreateTimer(Arg.Do<TimerCallback>(cb => capturedCallback = cb), 
-            Arg.Any<object?>(), Arg.Any<TimeSpan>(), Arg.Any<TimeSpan>())
-            .Returns(mockTimer);
-
-        var eventRaised = false;
+        var eventsRaised = 0;
         using var trigger = new PeriodicTrigger(_mockTimeProvider, _mockOptions, _logger);
-        trigger.Triggered += (sender, args) => eventRaised = true;
+        trigger.Triggered += (sender, args) => eventsRaised++;
+        trigger.Start();
+        _mockTimeProvider.Advance(TimeSpan.FromMinutes(1.5));
+        Assert.AreEqual(2, eventsRaised);
+    }
+
+    [TestMethod]
+    public void Start_ShouldFireEventImmediately_AndNextEventAfterInterval()
+    {
+        // Arrange
+        int eventCount = 0;
+        using var trigger = new PeriodicTrigger(_mockTimeProvider, _mockOptions, _logger);
+        trigger.Triggered += (sender, args) => eventCount++;
 
         // Act
-        capturedCallback?.Invoke(null);
+        trigger.Start();
+        Assert.AreEqual(1, eventCount, "First event should be fired immediately after Start()");
 
-        // Assert
-        Assert.IsTrue(eventRaised);
+        // Advance time by interval and simulate timer firing
+        _mockTimeProvider.Advance(_testInterval);
+        // The trigger should fire again after interval
+        Assert.AreEqual(2, eventCount, "Second event should be fired after interval");
     }
 
     [TestMethod]
     public void Dispose_WhenCalled_ShouldDisposeTimer()
     {
         // Arrange
-        var mockTimer = Substitute.For<System.Threading.ITimer>();
-        _mockTimeProvider.CreateTimer(Arg.Any<TimerCallback>(), Arg.Any<object?>(), 
+        var mockTimer = Substitute.For<ITimer>();
+        var mockTimeProvider = Substitute.For<TimeProvider>();
+
+        mockTimeProvider.CreateTimer(Arg.Any<TimerCallback>(), Arg.Any<object?>(), 
             Arg.Any<TimeSpan>(), Arg.Any<TimeSpan>())
             .Returns(mockTimer);
 
-        var trigger = new PeriodicTrigger(_mockTimeProvider, _mockOptions, _logger);
+        var trigger = new PeriodicTrigger(mockTimeProvider, _mockOptions, _logger);
+        trigger.Start(); // Start the trigger to create the timer
 
         // Act
         trigger.Dispose();
@@ -140,22 +149,84 @@ public sealed class PeriodicReportTriggerTests
     public void TimerCallback_AfterDispose_ShouldNotRaiseEvent()
     {
         // Arrange
-        var mockTimer = Substitute.For<System.Threading.ITimer>();
-        TimerCallback? capturedCallback = null;
-
-        _mockTimeProvider.CreateTimer(Arg.Do<TimerCallback>(cb => capturedCallback = cb), 
-            Arg.Any<object?>(), Arg.Any<TimeSpan>(), Arg.Any<TimeSpan>())
-            .Returns(mockTimer);
-
-        var eventRaised = false;
+        var mockTimer = Substitute.For<ITimer>();
+        var eventRaisedCnt = 0;
         var trigger = new PeriodicTrigger(_mockTimeProvider, _mockOptions, _logger);
-        trigger.Triggered += (sender, args) => eventRaised = true;
-        trigger.Dispose();
+        trigger.Triggered += (sender, args) => eventRaisedCnt++;
 
         // Act
-        capturedCallback?.Invoke(null);
+        trigger.Start();
+        trigger.Dispose();
+        _mockTimeProvider.Advance(TimeSpan.FromMinutes(2));
 
         // Assert
-        Assert.IsFalse(eventRaised);
+        Assert.AreEqual(1, eventRaisedCnt);
+    }
+
+    [TestMethod]
+    public void Stop_WhenCalled_ShouldDisposeTimer()
+    {
+        // Arrange
+        var mockTimer = Substitute.For<ITimer>();
+        var mockTimeProvider = Substitute.For<TimeProvider>();
+
+        mockTimeProvider.CreateTimer(Arg.Any<TimerCallback>(), Arg.Any<object?>(), 
+            Arg.Any<TimeSpan>(), Arg.Any<TimeSpan>())
+            .Returns(mockTimer);
+
+        var trigger = new PeriodicTrigger(mockTimeProvider, _mockOptions, _logger);
+        trigger.Start();
+
+        // Act
+        trigger.Stop();
+
+        // Assert
+        mockTimer.Received(1).Dispose();
+    }
+
+    [TestMethod]
+    public void Start_WhenCalledTwice_ShouldOnlyCreateTimerOnce()
+    {
+        // Arrange
+        var mockTimer = Substitute.For<ITimer>();
+        var mockTimeProvider = Substitute.For<TimeProvider>();
+
+        mockTimeProvider.CreateTimer(Arg.Any<TimerCallback>(), Arg.Any<object?>(), 
+            Arg.Any<TimeSpan>(), Arg.Any<TimeSpan>())
+            .Returns(mockTimer);
+
+        using var trigger = new PeriodicTrigger(mockTimeProvider, _mockOptions, _logger);
+
+        // Act
+        trigger.Start();
+        trigger.Start(); // Second call should be ignored
+
+        // Assert
+        mockTimeProvider.Received(1).CreateTimer(
+            Arg.Any<TimerCallback>(),
+            Arg.Any<object?>(),
+            TimeSpan.Zero,
+            _testInterval);
+    }
+
+    [TestMethod]
+    public void Stop_WhenCalledTwice_ShouldOnlyDisposeTimerOnce()
+    {
+        // Arrange
+        var mockTimer = Substitute.For<ITimer>();
+        var mockTimeProvider = Substitute.For<TimeProvider>();
+
+        mockTimeProvider.CreateTimer(Arg.Any<TimerCallback>(), Arg.Any<object?>(), 
+            Arg.Any<TimeSpan>(), Arg.Any<TimeSpan>())
+            .Returns(mockTimer);
+
+        var trigger = new PeriodicTrigger(mockTimeProvider, _mockOptions, _logger);
+        trigger.Start();
+
+        // Act
+        trigger.Stop();
+        trigger.Stop(); // Second call should be ignored
+        // Assert
+        mockTimer.Received(1).Dispose();
     }
 }

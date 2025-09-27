@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace PowerTrading.Reporting.Service.Options;
 
 /// <summary>
@@ -12,8 +14,11 @@ public sealed class PeriodicTriggerOptions
 
     /// <summary>
     /// Interval in minutes between report triggers. Must be greater than zero.
+    /// This value is required and must be explicitly configured.
     /// </summary>
-    public int IntervalMinutes { get; init; } = 60;
+    [Required(ErrorMessage = "IntervalMinutes is required and must be configured in the PeriodicTrigger section")]
+    [Range(1, int.MaxValue, ErrorMessage = "IntervalMinutes must be greater than 0")]
+    public int IntervalMinutes { get; init; }
 
     /// <summary>
     /// Gets the interval as a TimeSpan for internal use.

@@ -1,4 +1,6 @@
 using PowerTrading.Reporting.Service.Options;
+using PowerTrading.Reporting.Service.Models;
+using Services;
 
 namespace PowerTrading.Reporting.Service.Services;
 
@@ -34,12 +36,22 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        // Configure options from configuration with fallback defaults
-        services.Configure<PeriodicTriggerOptions>(
-            configuration.GetSection(PeriodicTriggerOptions.SectionName));
+        // Configure options from configuration with data annotation validation
+        services.AddOptionsWithValidateOnStart<PeriodicTriggerOptions>()
+            .Bind(configuration.GetSection(PeriodicTriggerOptions.SectionName))
+            .ValidateDataAnnotations();
 
         // Register report trigger with its dependencies
         services.AddSingleton<ITrigger, PeriodicTrigger>();
+        
+        // Register power service (from external library) as singleton for background service
+        services.AddSingleton<IPowerService, PowerService>();
+        
+        // Register mapper as singleton
+        services.AddSingleton<IMapper<PowerPeriod, ReportingPowerPeriod>, PowerPeriodMapper>();
+        
+        // Register report generator as singleton for background service
+        services.AddSingleton<IReportGenerator, PowerPositionReportGenerator>();
         
         return services;
     }

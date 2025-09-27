@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.9.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.1.1" />
     <PackageReference Include="MSTest.TestFramework" Version="3.1.1" />
@@ -23,6 +24,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PowerTrading.Reporting.Service\PowerTrading.Reporting.Service.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="PowerService">
+      <HintPath>..\lib\PowerService.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

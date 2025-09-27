@@ -5,5 +5,5 @@ namespace PowerTrading.Reporting.Service.Services;
 /// </summary>
 public class TriggerEventArgs : EventArgs
 {
-    public DateTime TriggeredAt { get; init; } = DateTime.UtcNow;
+    public required DateTime TriggeredAt { get; init; }
 }
