@@ -7,19 +7,23 @@ public class IntradayPositionReporter : BackgroundService
 {
     private readonly ITrigger _trigger;
     private readonly IReportGenerator _reportGenerator;
+    private readonly IReportExporter _reportExporter;
     private readonly ILogger<IntradayPositionReporter> _logger;
 
     public IntradayPositionReporter(
         ITrigger trigger,
         IReportGenerator reportGenerator,
+        IReportExporter reportExporter,
         ILogger<IntradayPositionReporter> logger)
     {
         ArgumentNullException.ThrowIfNull(trigger);
         ArgumentNullException.ThrowIfNull(reportGenerator);
+        ArgumentNullException.ThrowIfNull(reportExporter);
         ArgumentNullException.ThrowIfNull(logger);
 
         _trigger = trigger;
         _reportGenerator = reportGenerator;
+        _reportExporter = reportExporter;
         _logger = logger;
     }
 
@@ -51,25 +55,22 @@ public class IntradayPositionReporter : BackgroundService
         }
     }
 
-    private async void OnReportTriggered(object? sender, TriggerEventArgs e)
+    private async void OnReportTriggered(object? _, TriggerEventArgs e)
     {
-        await GenerateReportAsync(e.TriggeredAt);
-    }
-
-    private async Task GenerateReportAsync(DateTime timestamp)
-    {
+        DateTime timestamp = e.TriggeredAt;
         try
         {
             _logger.LogInformation("Generating report for timestamp {Timestamp}", timestamp);
             
             var report = await _reportGenerator.GenerateReportAsync(timestamp);
+            await _reportExporter.Export(report);
             
-            _logger.LogInformation("Report generated successfully with {PeriodCount} periods for timestamp {ReportTimestamp}", 
+            _logger.LogInformation("Report generated and exported successfully with {PeriodCount} periods for timestamp {ReportTimestamp}", 
                 report.Periods.Count, report.ReportTimestamp);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to generate report for timestamp {Timestamp}", timestamp);
+            _logger.LogError(ex, "Failed to generate or export report for timestamp {Timestamp}", timestamp);
         }
     }
 }

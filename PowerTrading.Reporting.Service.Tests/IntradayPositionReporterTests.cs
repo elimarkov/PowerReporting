@@ -13,14 +13,16 @@ public sealed class IntradayPositionReporterTests
 {
     private ITrigger _mockTrigger = null!;
     private IReportGenerator _mockReportGenerator = null!;
+    private IReportExporter _mockReportExporter = null!;
     private ILogger<IntradayPositionReporter> _mockLogger = null!;
 
     [TestInitialize]
     public void Setup()
     {
-        _mockTrigger = Substitute.For<ITrigger>();
-        _mockReportGenerator = Substitute.For<IReportGenerator>();
-        _mockLogger = Substitute.For<ILogger<IntradayPositionReporter>>();
+    _mockTrigger = Substitute.For<ITrigger>();
+    _mockReportGenerator = Substitute.For<IReportGenerator>();
+    _mockReportExporter = Substitute.For<IReportExporter>();
+    _mockLogger = Substitute.For<ILogger<IntradayPositionReporter>>();
     }
 
     [TestMethod]
@@ -28,7 +30,7 @@ public sealed class IntradayPositionReporterTests
     {
         // Act & Assert
         Assert.ThrowsException<ArgumentNullException>(() =>
-            new IntradayPositionReporter(null!, _mockReportGenerator, _mockLogger));
+            new IntradayPositionReporter(null!, _mockReportGenerator, _mockReportExporter, _mockLogger));
     }
 
     [TestMethod]
@@ -36,7 +38,7 @@ public sealed class IntradayPositionReporterTests
     {
         // Act & Assert
         Assert.ThrowsException<ArgumentNullException>(() =>
-            new IntradayPositionReporter(_mockTrigger, null!, _mockLogger));
+            new IntradayPositionReporter(_mockTrigger, null!, _mockReportExporter, _mockLogger));
     }
 
     [TestMethod]
@@ -44,13 +46,13 @@ public sealed class IntradayPositionReporterTests
     {
         // Act & Assert
         Assert.ThrowsException<ArgumentNullException>(() =>
-            new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, null!));
+            new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockReportExporter, null!));
     }
     [TestMethod]
     public void Constructor_WithValidParameters_ShouldCreateInstance()
     {
         // Act
-    var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockLogger);
+        var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockReportExporter, _mockLogger);
 
         // Assert
         Assert.IsNotNull(reporter);
@@ -71,7 +73,7 @@ public sealed class IntradayPositionReporterTests
 
         using var trigger = new PeriodicTrigger(mockTimeProvider, mockOptions, logger);
 
-        var reporter = new IntradayPositionReporter(trigger, _mockReportGenerator,  _mockLogger);
+    var reporter = new IntradayPositionReporter(trigger, _mockReportGenerator, _mockReportExporter, _mockLogger);
         var expectedInitialReport = new PowerPositionReport(expectedTime, new List<ReportingPowerPeriod>());
 
         _mockReportGenerator.GenerateReportAsync(expectedTime)
@@ -101,7 +103,7 @@ public sealed class IntradayPositionReporterTests
     public async Task ExecuteAsync_OnCancellation_ShouldStopTriggerAndUnsubscribe()
     {
         // Arrange
-        var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockLogger);
+    var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockReportExporter, _mockLogger);
             using var cts = new CancellationTokenSource();
         
         // Act
@@ -125,7 +127,7 @@ public sealed class IntradayPositionReporterTests
     public async Task OnReportTriggered_ShouldCallReportGeneratorWithCorrectTimestamp()
     {
         // Arrange
-        var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockLogger);
+    var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockReportExporter, _mockLogger);
             var triggeredAt = DateTime.UtcNow;
             var expectedReport = new PowerPositionReport(triggeredAt, new List<ReportingPowerPeriod>());
         
@@ -156,7 +158,7 @@ public sealed class IntradayPositionReporterTests
     public async Task OnReportTriggered_WithReportGenerationSuccess_ShouldLogSuccess()
     {
         // Arrange
-        var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockLogger);
+        var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockReportExporter, _mockLogger);
         var triggeredAt = DateTime.UtcNow;
         var periods = new List<ReportingPowerPeriod>
         {
@@ -178,11 +180,13 @@ public sealed class IntradayPositionReporterTests
         _mockTrigger.Triggered += Raise.EventWith(_mockTrigger, new TriggerEventArgs { TriggeredAt = triggeredAt });
         await Task.Delay(100);
         
+        // Assert - Verify that Export was called
+        await _mockReportExporter.Received(1).Export(expectedReport);
         // Assert - Verify that LogInformation was called with the success message
         _mockLogger.Received().Log(
             LogLevel.Information,
             Arg.Any<EventId>(),
-            Arg.Is<object>(o => o.ToString()!.Contains("Report generated successfully") && o.ToString()!.Contains("2 periods")),
+            Arg.Is<object>(o => o.ToString()!.Contains("Report generated and exported successfully") && o.ToString()!.Contains("2 periods")),
             null,
             Arg.Any<Func<object, Exception?, string>>());
         
@@ -195,7 +199,7 @@ public sealed class IntradayPositionReporterTests
     public async Task OnReportTriggered_WithReportGenerationException_ShouldLogError()
     {
         // Arrange
-        var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockLogger);
+    var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockReportExporter, _mockLogger);
         var triggeredAt = DateTime.UtcNow;
         var expectedException = new InvalidOperationException("Test exception");
         
@@ -216,7 +220,7 @@ public sealed class IntradayPositionReporterTests
         _mockLogger.Received().Log(
             LogLevel.Error,
             Arg.Any<EventId>(),
-            Arg.Is<object>(o => o.ToString()!.Contains("Failed to generate report")),
+            Arg.Is<object>(o => o.ToString()!.Contains("Failed to generate or export report")),
             expectedException,
             Arg.Any<Func<object, Exception?, string>>());
         
@@ -229,7 +233,7 @@ public sealed class IntradayPositionReporterTests
     public async Task ExecuteAsync_ShouldLogStartupAndShutdownMessages()
     {
         // Arrange
-        var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockLogger);
+    var reporter = new IntradayPositionReporter(_mockTrigger, _mockReportGenerator, _mockReportExporter, _mockLogger);
         using var cts = new CancellationTokenSource();
         
         // Act
@@ -260,7 +264,7 @@ public sealed class IntradayPositionReporterTests
 
         using var trigger = new PeriodicTrigger(mockTimeProvider, mockOptions, logger);
 
-        var reporter = new IntradayPositionReporter(trigger, _mockReportGenerator,  _mockLogger);
+    var reporter = new IntradayPositionReporter(trigger, _mockReportGenerator, _mockReportExporter, _mockLogger);
 
         var expectedException = new InvalidOperationException("Initial report generation failed");
         
@@ -280,7 +284,7 @@ public sealed class IntradayPositionReporterTests
         _mockLogger.Received().Log(
             LogLevel.Error,
             Arg.Any<EventId>(),
-            Arg.Is<object>(o => o.ToString()!.Contains("Failed to generate report for timestamp")),
+            Arg.Is<object>(o => o.ToString()!.Contains("Failed to generate or export report for timestamp")),
             expectedException,
             Arg.Any<Func<object, Exception?, string>>());
         

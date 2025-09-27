@@ -482,3 +482,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Ignore generated power reports
+PowerTrading.Reporting.Service/PowerIntradayReports/
