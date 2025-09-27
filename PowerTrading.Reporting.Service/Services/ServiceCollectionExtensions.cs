@@ -41,6 +41,11 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(PeriodicTriggerOptions.SectionName))
             .ValidateDataAnnotations();
 
+        // Configure CsvExporterOptions from configuration with data annotation validation
+        services.AddOptionsWithValidateOnStart<CsvExporterOptions>()
+            .Bind(configuration.GetSection(CsvExporterOptions.SectionName))
+            .ValidateDataAnnotations();
+
         // Register report trigger with its dependencies
         services.AddSingleton<ITrigger, PeriodicTrigger>();
         
@@ -52,6 +57,9 @@ public static class ServiceCollectionExtensions
         
         // Register report generator as singleton for background service
         services.AddSingleton<IReportGenerator, PowerPositionReportGenerator>();
+
+        // Register CsvReportExporter as IReportExporter
+        services.AddSingleton<IReportExporter, CsvReportExporter>();
         
         return services;
     }
