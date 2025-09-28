@@ -1,6 +1,7 @@
 using PowerTrading.Reporting.Service.Options;
 using PowerTrading.Reporting.Service.Models;
 using Services;
+using Polly;
 
 namespace PowerTrading.Reporting.Service.Services;
 
@@ -60,6 +61,27 @@ public static class ServiceCollectionExtensions
 
         // Register CsvReportExporter as IReportExporter
         services.AddSingleton<IReportExporter, CsvReportExporter>();
+
+        services.AddResiliencePipeline("ReportGeneration", (builder, context) =>
+        {
+            var logger = context.ServiceProvider.GetRequiredService<ILogger<IntradayPositionReporter>>();
+            
+            builder
+                .AddRetry(new()
+                {
+                    MaxRetryAttempts = 3,
+                    BackoffType = DelayBackoffType.Exponential,
+                    Delay = TimeSpan.FromSeconds(1),
+                    OnRetry = arg =>
+                    {
+                        logger.LogWarning(arg.Outcome.Exception,
+                            "Retry {RetryCount} after {RetryInterval:N0}ms",
+                            arg.AttemptNumber,
+                            arg.RetryDelay.TotalMilliseconds);
+                        return default;
+                    }
+                });
+        });        
         
         return services;
     }
@@ -77,7 +99,7 @@ public static class ServiceCollectionExtensions
 
         services.AddTimerServices();
         services.AddReportingServices(configuration);
-        
+
         return services;
     }
 }
