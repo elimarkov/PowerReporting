@@ -10,9 +10,10 @@ The service uses an event-driven architecture with explicit lifecycle control an
 
 - **ITrigger**: Interface for triggering report generation events with Start/Stop lifecycle methods
 - **PeriodicTrigger**: Timer-based implementation with configurable intervals and explicit lifecycle control
-- **IntradayPositionReporter**: Background service that generates initial report on startup and listens for trigger events
+- **IntradayPositionReporter**: Background service with resilient report generation using Polly
 - **IReportGenerator**: Interface for report generation with PowerPositionReportGenerator implementation
-- **PowerPositionReport**: Domain model with ordered power periods using 1-based indexing
+- **PowerPositionReport**: Domain model with ordered power periods using power trading day ordering
+- **ResiliencePipelineProvider**: Modern Polly implementation for resilient operations
 
 ### Domain Models
 
@@ -27,26 +28,37 @@ The service uses an event-driven architecture with explicit lifecycle control an
 - **Explicit Lifecycle Control**: PeriodicTrigger requires explicit Start/Stop calls
 - **Data Validation**: Uses data annotations for configuration validation
 - **Power Trading Day Ordering**: 23:00 first, then 00:00-22:00 following day
-- **Comprehensive Logging**: Structured logging throughout the application
-- **Robust Error Handling**: Graceful error handling with continued operation
+- **Comprehensive Logging**: Structured Serilog integration with console and file sinks
+- **Resilient Operations**: Modern Polly ResiliencePipeline with exponential backoff
+- **Dependency Injection**: Clean DI setup with validated options and resilience policies
 
 ## Configuration
 
-The service uses configuration validation with data annotations:
+The service uses strongly-typed options with validation:
 
 ```json
 {
   "PeriodicTrigger": {
     "IntervalMinutes": 1
+  },
+  "CsvExporter": {
+    "OutputDirectory": "./PowerIntradayReports"
   }
-}
 ```
 
-### Configuration Validation
+### Configuration Details
 
+#### Options Validation
 - **IntervalMinutes**: Required, must be between 1 and 1440 (24 hours)
+- **OutputDirectory**: Required, path for CSV report output
 - **Startup Validation**: Service fails fast if configuration is invalid
 - **Data Annotations**: Uses Microsoft.Extensions.Options.DataAnnotations for validation
+
+#### Resilience Configuration
+- **Retry Policy**: Exponential backoff with 3 attempts
+- **Pipeline Registry**: Named "ReportGeneration" pipeline
+- **Error Logging**: Structured logging of retry attempts with intervals
+- **Backoff**: Exponential delay between retries starting at 1 second
 
 ## Report Generation Behavior
 
@@ -90,14 +102,36 @@ The solution includes comprehensive unit tests:
 - **Integration testing** for complete workflows
 
 ### Running Tests
-```bash
+```powershell
 dotnet test
 ```
 
 ## Development
 
-### Technologies
+### Technologies & Packages
 - **.NET 8.0**: Latest LTS version with modern C# features
+- **Polly 8.3.0**: Modern resilience patterns with ResiliencePipeline
+- **Serilog 4.0.2**: Structured logging with multiple sinks
+- **Microsoft.Extensions.Options.DataAnnotations 9.0.9**: Configuration validation
+- **NSubstitute**: Modern mocking framework for unit tests
+
+### Project Structure
+```
+PowerTrading.Reporting.Service/
+├── Extensions/
+│   └── ServiceCollectionExtensions.cs   # DI configuration
+├── Models/
+│   ├── PowerPositionReport.cs          # Report model
+│   └── ReportingPowerPeriod.cs        # Power period
+├── Options/
+│   ├── CsvExporterOptions.cs          # Export settings
+│   └── PeriodicTriggerOptions.cs      # Timer settings
+├── Services/
+│   ├── IntradayPositionReporter.cs    # Background service
+│   ├── PeriodicTrigger.cs            # Timer implementation
+│   ├── PowerPeriodMapper.cs          # Period mapping
+│   └── PowerPositionReportGenerator.cs # Report generation
+└── Program.cs                        # Service configuration
 - **Microsoft.Extensions.Hosting**: Background service framework
 - **Serilog**: Structured logging
 - **MSTest & NSubstitute**: Unit testing framework and mocking
@@ -124,10 +158,19 @@ The service can be deployed as:
 - **Container**: Using Docker for cloud deployment
 
 ### Running the Service
-```bash
-# Development
-dotnet run --project PowerTrading.Reporting.Service --environment Development
+```powershell
+# Development mode
+dotnet run --project .\PowerTrading.Reporting.Service --environment Development
 
-# Production
-dotnet run --project PowerTrading.Reporting.Service --environment Production
+# Production mode
+dotnet run --project .\PowerTrading.Reporting.Service --environment Production
+
+# Install as Windows Service
+New-Service -Name "PowerTradingReporting" -BinaryPathName "path\to\PowerTrading.Reporting.Service.exe"
+
+# Start the Windows Service
+Start-Service -Name "PowerTradingReporting"
+
+# Check service status
+Get-Service -Name "PowerTradingReporting"
 ```
