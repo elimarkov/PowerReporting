@@ -1,9 +1,10 @@
 using PowerTrading.Reporting.Service.Options;
 using PowerTrading.Reporting.Service.Models;
-using Services;
+using PowerTrading.Reporting.Service.Services;
 using Polly;
+using Services;
 
-namespace PowerTrading.Reporting.Service.Services;
+namespace PowerTrading.Reporting.Service.Extensions;
 
 /// <summary>
 /// Extension methods for IServiceCollection to configure service dependencies

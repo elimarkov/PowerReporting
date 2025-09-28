@@ -1,3 +1,4 @@
+using PowerTrading.Reporting.Service.Extensions;
 using PowerTrading.Reporting.Service.Services;
 using Serilog;
 
